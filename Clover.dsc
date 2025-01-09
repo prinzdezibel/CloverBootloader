@@ -109,6 +109,8 @@
   #PeCoffExtraActionLib|MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
   NetLib|NetworkPkg/Library/DxeNetLib/DxeNetLib.inf
   FrameBufferBltLib|MdeModulePkg/Library/FrameBufferBltLib/FrameBufferBltLib.inf
+  VirtioLib|OvmfPkg/Library/VirtioLib/VirtioLib.inf
+
   #
   # Platform
   #
@@ -311,6 +313,9 @@
 !else
   DEFINE OC_INCLUDE_FLAG = -include OpenCoreFromClover.h -Wno-uninitialized
 !endif
+
+
+
 
 #  OpenCorePkg/Application/OpenCore/OpenCoreLib.inf {
 #    <BuildOptions>
@@ -597,6 +602,8 @@
       DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
       ReportStatusCodeLib|MdePkg/Library/BaseReportStatusCodeLibNull/BaseReportStatusCodeLibNull.inf
   }
+
+  OvmfPkg/VirtioBlkDxe/VirtioBlk.inf
 
   MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
   MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
