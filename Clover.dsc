@@ -121,6 +121,7 @@
   #
   # Misc
   #
+  TimeBaseLib|EmbeddedPkg/Library/TimeBaseLib/TimeBaseLib.inf
   CppMemLib|Library/CppMemLib/CppMemLib.inf
   PerformanceLib|MdePkg/Library/BasePerformanceLibNull/BasePerformanceLibNull.inf
   DebugAgentLib|MdeModulePkg/Library/DebugAgentLibNull/DebugAgentLibNull.inf
@@ -604,6 +605,7 @@
   }
 
   OvmfPkg/VirtioBlkDxe/VirtioBlk.inf
+  OvmfPkg/VirtioFsDxe/VirtioFsDxe.inf
 
   MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
   MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf

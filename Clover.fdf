@@ -94,6 +94,7 @@ INF  MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe.inf
 INF  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
 
 INF  OvmfPkg/VirtioBlkDxe/VirtioBlk.inf
+INF  OvmfPkg/VirtioFsDxe/VirtioFsDxe.inf
 
 #INF  MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe.inf
 INF  CloverEFI/GraphicsConsoleDxe/GraphicsConsoleDxe.inf
