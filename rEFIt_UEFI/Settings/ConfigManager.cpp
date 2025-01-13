@@ -1023,6 +1023,16 @@ EFI_STATUS ConfigManager::InitialisePlatform()
   gCPUStructure.CurrentSpeed = g_SmbiosDiscoveredSettings.CurrentSpeed;
   gCPUStructure.MaxSpeed = g_SmbiosDiscoveredSettings.MaxSpeed;
 
+
+  // We need to know if the CPU is virtualised for GetCPUProperties
+  // Unfortunatel config.plist will not be loaded after GetCPUProperties.
+  // Peek inside config.plist now to know at least the QEMU property.
+  Status = LoadConfigPlist(L"config"_XSW);
+  if ( EFI_ERROR(Status) ) {
+    DBG("LoadConfigPlist return %s. Config not loaded\n", efiStrError(Status));
+  }
+  gSettings.takeValueFrom(configPlist); // if load failed, keep default value.
+
   GetCPUProperties();
   DiscoverDevices();
 

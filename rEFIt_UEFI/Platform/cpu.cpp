@@ -291,87 +291,94 @@ void GetCPUProperties (void)
     //get cores and threads
     XBool PerfBias = (gCPUStructure.CPUID[CPUID_6][ECX] & BIT3) != 0;
     DBG(" Energy PerfBias is %s visible:\n", PerfBias?"":" not");
-    switch (gCPUStructure.Model)
-    {
-      case CPU_MODEL_NEHALEM: // Intel Core i7 LGA1366 (45nm)
-      case CPU_MODEL_FIELDS: // Intel Core i5, i7 LGA1156 (45nm)
-      case CPU_MODEL_CLARKDALE: // Intel Core i3, i5, i7 LGA1156 (32nm)
-      case CPU_MODEL_NEHALEM_EX:
-      case CPU_MODEL_JAKETOWN:
-      case CPU_MODEL_SANDY_BRIDGE:
-      case CPU_MODEL_IVY_BRIDGE:
-      case CPU_MODEL_IVY_BRIDGE_E5:
-      case CPU_MODEL_HASWELL:
-      case CPU_MODEL_HASWELL_U5:
-      case CPU_MODEL_HASWELL_E:
-      case CPU_MODEL_HASWELL_ULT:
-      case CPU_MODEL_CRYSTALWELL:
-      case CPU_MODEL_BROADWELL_HQ:
-      case CPU_MODEL_AIRMONT:
-      case CPU_MODEL_AVOTON:
-      case CPU_MODEL_SKYLAKE_U:
-      case CPU_MODEL_BROADWELL_DE:
-      case CPU_MODEL_BROADWELL_E5:
-      case CPU_MODEL_KNIGHT:
-      case CPU_MODEL_MOOREFIELD:
-      case CPU_MODEL_GOLDMONT:
-      case CPU_MODEL_ATOM_X3:
-      case CPU_MODEL_SKYLAKE_D:
-      case CPU_MODEL_SKYLAKE_S:
-      case CPU_MODEL_KABYLAKE1:
-      case CPU_MODEL_KABYLAKE2:
-      case CPU_MODEL_CANNONLAKE:
-      case CPU_MODEL_ICELAKE_A:
-      case CPU_MODEL_ICELAKE_C:
-      case CPU_MODEL_ICELAKE_D:
-      case CPU_MODEL_ICELAKE:
-      case CPU_MODEL_COMETLAKE_S:
-      case CPU_MODEL_COMETLAKE_Y:
-      case CPU_MODEL_COMETLAKE_U:
-      case CPU_MODEL_TIGERLAKE_C:
-      case CPU_MODEL_TIGERLAKE_D:
-      case CPU_MODEL_ROCKETLAKE:
-      case CPU_MODEL_ALDERLAKE:
-      case CPU_MODEL_RAPTORLAKE:
-      case CPU_MODEL_ALDERLAKE_ULT:
-      case CPU_MODEL_RAPTORLAKE_B:
-      case CPU_MODEL_METEORLAKE:
-        msr = AsmReadMsr64(MSR_CORE_THREAD_COUNT);  //0x35
-        DBG("MSR 0x35    %16llX\n", msr);
-        gCPUStructure.Cores   = (UINT8)bitfield((UINT32)msr, 31, 16);
-        gCPUStructure.Threads = (UINT8)bitfield((UINT32)msr, 15,  0);
-        break;
-      case CPU_MODEL_ARROWLAKE:
-      case CPU_MODEL_ARROWLAKE_X:
-      case CPU_MODEL_ARROWLAKE_U:
-        msr = AsmReadMsr64(MSR_CORE_THREAD_COUNT);  //0x35
-        DBG("MSR 0x35    %16llX\n", msr);
-        gCPUStructure.Cores   = (UINT8)bitfield((UINT32)msr, 31, 16);
-        gCPUStructure.Threads = gCPUStructure.Cores; // no hyperthreading
-        break;
-        
-      case CPU_MODEL_DALES:
-      case CPU_MODEL_WESTMERE: // Intel Core i7 LGA1366 (32nm) 6 Core
-      case CPU_MODEL_WESTMERE_EX:
-        msr = AsmReadMsr64(MSR_CORE_THREAD_COUNT);
-        gCPUStructure.Cores   = (UINT8)bitfield((UINT32)msr, 19, 16);
-        gCPUStructure.Threads = (UINT8)bitfield((UINT32)msr, 15,  0);
-        break;
-      case CPU_MODEL_ATOM_3700:
-        gCPUStructure.Cores   = 4;
-        gCPUStructure.Threads = 4;
-        break;
-      case CPU_MODEL_ATOM:
-        gCPUStructure.Cores   = 2;
-        gCPUStructure.Threads = 2;
-        break;
-        
-      default:
-        gCPUStructure.Cores = 0;
-        break;
+
+    if(gSettings.CPU.QEMU) {
+      // Hypervisors virtualise MSRs so the values are either not present
+      // and cause a crash or are irrelevant as they report placeholders. 
+      gCPUStructure.Cores = 0;
+    } else {
+      switch (gCPUStructure.Model)
+      {
+        case CPU_MODEL_NEHALEM: // Intel Core i7 LGA1366 (45nm)
+        case CPU_MODEL_FIELDS: // Intel Core i5, i7 LGA1156 (45nm)
+        case CPU_MODEL_CLARKDALE: // Intel Core i3, i5, i7 LGA1156 (32nm)
+        case CPU_MODEL_NEHALEM_EX:
+        case CPU_MODEL_JAKETOWN:
+        case CPU_MODEL_SANDY_BRIDGE:
+        case CPU_MODEL_IVY_BRIDGE:
+        case CPU_MODEL_IVY_BRIDGE_E5:
+        case CPU_MODEL_HASWELL:
+        case CPU_MODEL_HASWELL_U5:
+        case CPU_MODEL_HASWELL_E:
+        case CPU_MODEL_HASWELL_ULT:
+        case CPU_MODEL_CRYSTALWELL:
+        case CPU_MODEL_BROADWELL_HQ:
+        case CPU_MODEL_AIRMONT:
+        case CPU_MODEL_AVOTON:
+        case CPU_MODEL_SKYLAKE_U:
+        case CPU_MODEL_BROADWELL_DE:
+        case CPU_MODEL_BROADWELL_E5:
+        case CPU_MODEL_KNIGHT:
+        case CPU_MODEL_MOOREFIELD:
+        case CPU_MODEL_GOLDMONT:
+        case CPU_MODEL_ATOM_X3:
+        case CPU_MODEL_SKYLAKE_D:
+        case CPU_MODEL_SKYLAKE_S:
+        case CPU_MODEL_KABYLAKE1:
+        case CPU_MODEL_KABYLAKE2:
+        case CPU_MODEL_CANNONLAKE:
+        case CPU_MODEL_ICELAKE_A:
+        case CPU_MODEL_ICELAKE_C:
+        case CPU_MODEL_ICELAKE_D:
+        case CPU_MODEL_ICELAKE:
+        case CPU_MODEL_COMETLAKE_S:
+        case CPU_MODEL_COMETLAKE_Y:
+        case CPU_MODEL_COMETLAKE_U:
+        case CPU_MODEL_TIGERLAKE_C:
+        case CPU_MODEL_TIGERLAKE_D:
+        case CPU_MODEL_ROCKETLAKE:
+        case CPU_MODEL_ALDERLAKE:
+        case CPU_MODEL_RAPTORLAKE:
+        case CPU_MODEL_ALDERLAKE_ULT:
+        case CPU_MODEL_RAPTORLAKE_B:
+        case CPU_MODEL_METEORLAKE:
+          msr = AsmReadMsr64(MSR_CORE_THREAD_COUNT);  //0x35
+          DBG("MSR 0x35    %16llX\n", msr);
+          gCPUStructure.Cores   = (UINT8)bitfield((UINT32)msr, 31, 16);
+          gCPUStructure.Threads = (UINT8)bitfield((UINT32)msr, 15,  0);
+          break;
+        case CPU_MODEL_ARROWLAKE:
+        case CPU_MODEL_ARROWLAKE_X:
+        case CPU_MODEL_ARROWLAKE_U:
+          msr = AsmReadMsr64(MSR_CORE_THREAD_COUNT);  //0x35
+          DBG("MSR 0x35    %16llX\n", msr);
+          gCPUStructure.Cores   = (UINT8)bitfield((UINT32)msr, 31, 16);
+          gCPUStructure.Threads = gCPUStructure.Cores; // no hyperthreading
+          break;
+
+        case CPU_MODEL_DALES:
+        case CPU_MODEL_WESTMERE: // Intel Core i7 LGA1366 (32nm) 6 Core
+        case CPU_MODEL_WESTMERE_EX:
+          msr = AsmReadMsr64(MSR_CORE_THREAD_COUNT);
+          gCPUStructure.Cores   = (UINT8)bitfield((UINT32)msr, 19, 16);
+          gCPUStructure.Threads = (UINT8)bitfield((UINT32)msr, 15,  0);
+          break;
+        case CPU_MODEL_ATOM_3700:
+          gCPUStructure.Cores   = 4;
+          gCPUStructure.Threads = 4;
+          break;
+        case CPU_MODEL_ATOM:
+          gCPUStructure.Cores   = 2;
+          gCPUStructure.Threads = 2;
+          break;
+
+        default:
+          gCPUStructure.Cores = 0;
+          break;
+      }
     }
   }
-  
+
   if (gCPUStructure.Vendor == CPU_VENDOR_INTEL) {
     DoCpuid(7, gCPUStructure.CPUID[CPUID_7]);
     if ((gCPUStructure.CPUID[CPUID_7][EBX] & BIT1) != 0) {
@@ -407,7 +414,6 @@ void GetCPUProperties (void)
       gCPUStructure.Threads = 0;
     }
   }
-  
   if (gCPUStructure.Cores == 0) {
     gCPUStructure.Cores   = (UINT8)(gCPUStructure.CoresPerPackage & 0xff);
     gCPUStructure.Threads = (UINT8)(gCPUStructure.LogicalPerPackage & 0xff);
@@ -415,7 +421,7 @@ void GetCPUProperties (void)
       gCPUStructure.Threads = gCPUStructure.Cores;
     }
   }
-  
+
   //workaround for N270. I don't know why it detected wrong
   if ((gCPUStructure.Model == CPU_MODEL_ATOM) && gCPUStructure.BrandString.contains("270") ) {
     gCPUStructure.Cores   = 1;
@@ -452,7 +458,7 @@ void GetCPUProperties (void)
    0x06170C2D06000C2DULL
    } */
   
-  if(gCPUStructure.Vendor == CPU_VENDOR_INTEL &&
+  if(!gSettings.CPU.QEMU && gCPUStructure.Vendor == CPU_VENDOR_INTEL &&
      ((gCPUStructure.Family == 0x06 && gCPUStructure.Model >= 0x0c) ||
       (gCPUStructure.Family == 0x0f && gCPUStructure.Model >= 0x03))) {
        if (gCPUStructure.Family == 0x06) {
