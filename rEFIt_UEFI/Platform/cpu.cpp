@@ -733,301 +733,306 @@ void GetCPUProperties (void)
 
     gCPUStructure.TSCFrequency = MultU64x32(gCPUStructure.CurrentSpeed, Mega); //MHz -> Hz
 	  DBG("CurrentSpeed: %llu\n", DivU64x32(gCPUStructure.TSCFrequency, Mega));
-    
-    switch (gCPUStructure.Family + gCPUStructure.Extfamily)
-    {
-        
-        //if(gCPUStructure.Extfamily == 0x00 /* K8 */)
-        /*case 0xf:
-         {
-         msr = AsmReadMsr64(K8_FIDVID_STATUS);
-         gCPUStructure.MaxRatio = (UINT32)(RShiftU64((RShiftU64(msr, 16) & 0x3f), 2) + 4);
-         gCPUStructure.MinRatio = (UINT32)(RShiftU64((RShiftU64(msr, 8) & 0x3f), 2) + 4);
-         } break;
-         */
-        //if(gCPUStructure.Family >= 0x01 /* K10+ */) {
-        
-      case 0xF: //// AMD Family 8h ////
-      {
-        UINT64 fidvid = 0;
-        UINT64 cpuMult;
-        UINT64 fid;
-        
-        fidvid = AsmReadMsr64(K8_FIDVID_STATUS);
-        fid = bitfield(fidvid, 5, 0);
-        
-        cpuMult = (fid + 8);// / 2;
-        
-        gCPUStructure.MinRatio = (UINT32)(RShiftU64((RShiftU64(fidvid, 8) & 0x3f), 2) + 4);
-        currcoef = (INTN)cpuMult;
-        gCPUStructure.MaxRatio = (UINT32)cpuMult;
-        
-        cpuMultN2 = (fidvid & (UINT64)bit(0));
-        currdiv = cpuMultN2;
-        
-        gCPUStructure.MaxRatio =  (gCPUStructure.MaxRatio * 5) ;
-        /////// Addon END ///////
-      }
-        break;
-        
-      case 0x10: //// AMD Family 10h ////
-      {
-        
-        UINT64 msr_min, msr_max;
-        UINT64 cpuMult;
-        UINT64 CpuDid;
-        UINT64 CpuFid;
-        // UINT64 divisor = 0;
-        
-        
-        msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
-        cpudid_zen = (UINT32)bitfield(msr_min, 6 , 4);
-        msr_min = AsmReadMsr64(K10_PSTATE_STATUS + cpudid_zen);
-        gCPUStructure.MinRatio = 5 * (UINT32)DivU64(((msr_min & 0x3f) + 0x08), LShiftU64(1ULL, ((RShiftU64(msr_min, 6) & 0x7))));
-        
-        msr_max = AsmReadMsr64(K10_PSTATE_STATUS);
-        
-        CpuDid = bitfield(msr_max, 8, 6);
-        CpuFid = bitfield(msr_max, 5, 0);
-        
-        /* if (CpuDid == 0) divisor = 2;
-         else if (CpuDid == 1) divisor = 4;
-         else if (CpuDid == 2) divisor = 8;
-         else if (CpuDid == 3) divisor = 16;
-         else if (CpuDid == 4) divisor = 32;
-         gCPUStructure.CpuDid = divisor;
-         */
-        cpuMult = DivU64((CpuFid + 0x10), LShiftU64(1ULL, (UINTN)CpuDid));
-        currcoef = (INTN)cpuMult;
-        gCPUStructure.MaxRatio = (UINT32)cpuMult;
-        
-        cpuMultN2 = (msr_max & (UINT64)bit(0));
-        currdiv = cpuMultN2;
-
-        
-        /////// Addon END ///////
-      }
-        break;
-        
-      case 0x11: //// AMD Family 11h ////
-      {
-        UINT64 cofvid = 0;
-        UINT64 cpuMult;
-        // UINT64 divisor = 0;
-        UINT64 CpuDid;
-        UINT64 CpuFid;
-        UINT64 msr_min = 0;
-        
-        msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
-        msr_min = AsmReadMsr64(K10_PSTATE_STATUS + (RShiftU64(msr_min, 4) & 0x07));
-        
-        gCPUStructure.MinRatio = 5 * (UINT32)DivU64(((msr_min & 0x3f) + 0x08), LShiftU64(1ULL, ((RShiftU64(msr_min, 6) & 0x7))));
-        
-        cofvid  = AsmReadMsr64(K10_PSTATE_STATUS);
-        CpuDid = bitfield(cofvid, 8, 6);
-        CpuFid = bitfield(cofvid, 5, 0);
-        //if (CpuDid == 0) divisor = 2;
-        //else if (CpuDid == 1) divisor = 4;
-        //else if (CpuDid == 2) divisor = 8;
-        //else if (CpuDid == 3) divisor = 16;
-        //else if (did == 4) divisor = 32;
-        
-        cpuMult = DivU64((CpuFid + 0x8), LShiftU64(1ULL, (UINTN)CpuDid));
-        
-        currcoef = (INTN)cpuMult;
-        gCPUStructure.MaxRatio = (UINT32)cpuMult;
-        
-        cpuMultN2 = (cofvid & (UINT64)bit(0));
-        currdiv = cpuMultN2;
-        /////// Addon END ///////
-      }
-        break;
-        
-      case 0x12: //// AMD Family 12h ////
-      {
-        // 8:4 CpuFid: current CPU core frequency ID
-        // 3:0 CpuDid: current CPU core divisor ID
-        UINT64 prfsts,CpuFid,CpuDid;
-        
-        UINT64 msr_min = 0;
-        
-        msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
-        msr_min = AsmReadMsr64(K10_PSTATE_STATUS + (RShiftU64(msr_min, 4) & 0x07));
-        
-        gCPUStructure.MinRatio = 5 * (UINT32)DivU64(((msr_min & 0x3f) + 0x08), LShiftU64(1ULL, ((RShiftU64(msr_min, 0) & 0x7))));
-        
-        prfsts = AsmReadMsr64(K10_PSTATE_STATUS);
-        
-        CpuDid = bitfield(prfsts, 3, 0) ;
-        CpuFid = bitfield(prfsts, 8, 4) ;
-        //uint64_t divisor;
-        /*switch (CpuDid)
-         {
-         case 0: divisor = 1; break;
-         case 1: divisor = (3/2); break;
-         case 2: divisor = 2; break;
-         case 3: divisor = 3; break;
-         case 4: divisor = 4; break;
-         case 5: divisor = 6; break;
-         case 6: divisor = 8; break;
-         case 7: divisor = 12; break;
-         case 8: divisor = 16; break;
-         default: divisor = 1; break;
-         }*/
-        
-        currcoef = (INTN)DivU64((CpuFid + 0x10), LShiftU64(1ULL, (UINTN)CpuDid));
-        gCPUStructure.MaxRatio = (UINT32)currcoef;
-        
-        cpuMultN2 = (prfsts & (UINT64)bit(0));
-        currdiv = cpuMultN2;
-        
-      }
-        break;
-        
-      case 0x14: //// AMD Family 14h ////
-        
-      {
-        // 8:4: current CPU core divisor ID most significant digit
-        // 3:0: current CPU core divisor ID least significant digit
-        UINT64 prfsts;
-        UINT64 msr_min = 0;
-        
-        msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
-        msr_min = AsmReadMsr64(K10_PSTATE_STATUS + (RShiftU64(msr_min, 4) & 0x07));
-        
-        gCPUStructure.MinRatio = 5 * (UINT32)DivU64(((msr_min & 0x3f) + 0x08), LShiftU64(1ULL, ((RShiftU64(msr_min, 0) & 0x7))));
-        
-        prfsts = AsmReadMsr64(K10_PSTATE_STATUS);
-        
-        UINT64 CpuDidMSD,CpuDidLSD;
-        CpuDidMSD = bitfield(prfsts, 8, 4) ;
-        CpuDidLSD  = bitfield(prfsts, 3, 0) ;
-        
-        UINT64 frequencyId = DivU64x32(gCPUStructure.CPUFrequency, Mega);
-        
-        //Bronya :  i think that this fixed, need test this ...
-        currcoef = (INTN)DivU64((DivU64x32((frequencyId + 5), 100) + 0x10), (UINT64)(CpuDidMSD + DivU64x32(CpuDidLSD, 4) + 1));
-        gCPUStructure.MaxRatio = (UINT32)currcoef;
-        
-        currdiv = (INTN)(((CpuDidMSD) + 1) << 2);
-        currdiv += (INTN)bitfield(prfsts, 3, 0);
-        
-        cpuMultN2 = currdiv;//(prfsts & (UINT64)bit(0));
-        //currdiv = cpuMultN2;
-      }
-        
-        break;
-        
-      case 0x15: //// AMD Family 15h ////
-      case 0x06: //// AMD Family 06h ////
-      {
-        
-        UINT64 cofvid = 0;
-        UINT64 cpuMult;
-        //UINT64 divisor = 0;
-        UINT64 CpuDid;
-        UINT64 CpuFid;
-        
-        UINT64 msr_min = 0;
-        
-        msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
-        msr_min = AsmReadMsr64(K10_PSTATE_STATUS + (RShiftU64(msr_min, 4) & 0x07));
-        
-        gCPUStructure.MinRatio = 5 * (UINT32)DivU64(((msr_min & 0x3f) + 0x08), LShiftU64(1ULL, ((RShiftU64(msr_min, 6) & 0x7))));
-        
-        cofvid  = AsmReadMsr64(K10_PSTATE_STATUS);
-        CpuDid = bitfield(cofvid, 8, 6);
-        CpuFid = bitfield(cofvid, 5, 0);
-        
-        /* if (CpuDid == 0) divisor = 2;
-         else if (CpuDid == 1) divisor = 4;
-         else if (CpuDid == 2) divisor = 8;
-         else if (CpuDid == 3) divisor = 16;
-         else if (CpuDid == 4) divisor = 32;
-         */
-        cpuMult = DivU64((CpuFid + 0x10), LShiftU64(1ULL, (UINTN)CpuDid));
-        
-        currcoef = (INTN)cpuMult;
-        gCPUStructure.MaxRatio = (UINT32)cpuMult;
-        //printf("cpuMult %d\n",currcoef);
-        
-        cpuMultN2 = (cofvid & (UINT64)bit(0));
-        currdiv = cpuMultN2;
-      }
-        break;
-        
-      case 0x16: //// AMD Family 16h kabini ////
-      {
-        UINT64 cofvid = 0;
-        UINT64 cpuMult;
-        //UINT64 divisor = 0;
-        UINT64 CpuDid;
-        UINT64 CpuFid;
-        UINT64 msr_min = 0;
-        
-        msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
-        msr_min = AsmReadMsr64(K10_PSTATE_STATUS + (RShiftU64(msr_min, 4) & 0x07));
-        
-        gCPUStructure.MinRatio = 5 * (UINT32)DivU64(((msr_min & 0x3f) + 0x08), LShiftU64(1ULL, ((RShiftU64(msr_min, 6) & 0x7))));
-        
-        
-        cofvid  = AsmReadMsr64(K10_PSTATE_STATUS);
-        CpuDid = bitfield(cofvid, 8, 6);
-        CpuFid = bitfield(cofvid, 5, 0);
-        /* if (CpuDid == 0) divisor = 2;
-         else if (CpuDid == 1) divisor = 4;
-         else if (CpuDid == 2) divisor = 8;
-         else if (CpuDid == 3) divisor = 16;
-         else if (CpuDid == 4) divisor = 32;
-         */
-        cpuMult = DivU64((CpuFid + 0x10), LShiftU64(1ULL, (UINTN)CpuDid));
-        
-        currcoef = (INTN)cpuMult;
-        gCPUStructure.MaxRatio = (UINT32)cpuMult;
-        
-        cpuMultN2 = (cofvid & (UINT64)bit(0));
-        currdiv = cpuMultN2;
-        
-      }
-        break;
-        
-      case 0x17: //Bronya: For AMD Family 17h Ryzen ! //
-      case 0x19: // and 19h Ryzen
-      {
-        // CoreCOF = (Core::X86::Msr::PStateDef[CpuFid[7:0]]/Core::X86::Msr::PStateDef[CpuDfsId])*200
-        
-        //gCPUStructure.MaxRatio = gCPUStructure.TSCFrequency  / (100 * Mega);//Mhz ;
-        
-        UINT64 cofvid = 0 , msr_min = 0;
-        UINT64 cpuMult;
-        UINT64 CpuDfsId;
-        UINT64 CpuFid;
-        
-        msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
-        msr_min = AsmReadMsr64(K10_PSTATE_STATUS + (RShiftU64(msr_min, 4) & 0x7));
-        gCPUStructure.MinRatio = ((UINT32)DivU64x32(((msr_min & 0xFF)), (RShiftU64(msr_min, 8) & 0x3f)))*20;
-        
-        cofvid = AsmReadMsr64(K10_PSTATE_STATUS);
-        CpuDfsId =  bitfield(cofvid, 13, 8);
-        CpuFid = bitfield(cofvid, 7, 0);
-        
-        cpuMult = DivU64(CpuFid, CpuDfsId) * 2 * 2 ; //Bronya: This add * 2 <- Interested ))
-        //cpuMult = (UINT32)DivU64x32(((cofvid & 0xFF)), (RShiftU64(cofvid, 8) & 0x3f))*2;
-        currcoef = (INTN)cpuMult;
-        gCPUStructure.MaxRatio = (UINT32)cpuMult;
-        
-        cpuMultN2 = (cofvid & (UINT64)bit(0));
-        currdiv = cpuMultN2;
-        cpudid_zen = (UINT32)(RShiftU64(cofvid, 8) & 0xff); //for mult
-        
-        /////// Addon END ///////
-      }
-        break;
-        
-      default:
-      {
+   
+    if (gSettings.CPU.QEMU) {
         gCPUStructure.MaxRatio = (UINT32)DivU64x32(gCPUStructure.TSCFrequency, (200 * Mega));//hz / (200 * Mega);
         currcoef = gCPUStructure.MaxRatio;
+    } else {
+      switch (gCPUStructure.Family + gCPUStructure.Extfamily)
+      {
+          
+          //if(gCPUStructure.Extfamily == 0x00 /* K8 */)
+          /*case 0xf:
+           {
+           msr = AsmReadMsr64(K8_FIDVID_STATUS);
+           gCPUStructure.MaxRatio = (UINT32)(RShiftU64((RShiftU64(msr, 16) & 0x3f), 2) + 4);
+           gCPUStructure.MinRatio = (UINT32)(RShiftU64((RShiftU64(msr, 8) & 0x3f), 2) + 4);
+           } break;
+           */
+          //if(gCPUStructure.Family >= 0x01 /* K10+ */) {
+          
+        case 0xF: //// AMD Family 8h ////
+        {
+          UINT64 fidvid = 0;
+          UINT64 cpuMult;
+          UINT64 fid;
+          
+          fidvid = AsmReadMsr64(K8_FIDVID_STATUS);
+          fid = bitfield(fidvid, 5, 0);
+          
+          cpuMult = (fid + 8);// / 2;
+          
+          gCPUStructure.MinRatio = (UINT32)(RShiftU64((RShiftU64(fidvid, 8) & 0x3f), 2) + 4);
+          currcoef = (INTN)cpuMult;
+          gCPUStructure.MaxRatio = (UINT32)cpuMult;
+          
+          cpuMultN2 = (fidvid & (UINT64)bit(0));
+          currdiv = cpuMultN2;
+          
+          gCPUStructure.MaxRatio =  (gCPUStructure.MaxRatio * 5) ;
+          /////// Addon END ///////
+        }
+          break;
+          
+        case 0x10: //// AMD Family 10h ////
+        {
+          
+          UINT64 msr_min, msr_max;
+          UINT64 cpuMult;
+          UINT64 CpuDid;
+          UINT64 CpuFid;
+          // UINT64 divisor = 0;
+          
+          
+          msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
+          cpudid_zen = (UINT32)bitfield(msr_min, 6 , 4);
+          msr_min = AsmReadMsr64(K10_PSTATE_STATUS + cpudid_zen);
+          gCPUStructure.MinRatio = 5 * (UINT32)DivU64(((msr_min & 0x3f) + 0x08), LShiftU64(1ULL, ((RShiftU64(msr_min, 6) & 0x7))));
+          
+          msr_max = AsmReadMsr64(K10_PSTATE_STATUS);
+          
+          CpuDid = bitfield(msr_max, 8, 6);
+          CpuFid = bitfield(msr_max, 5, 0);
+          
+          /* if (CpuDid == 0) divisor = 2;
+           else if (CpuDid == 1) divisor = 4;
+           else if (CpuDid == 2) divisor = 8;
+           else if (CpuDid == 3) divisor = 16;
+           else if (CpuDid == 4) divisor = 32;
+           gCPUStructure.CpuDid = divisor;
+           */
+          cpuMult = DivU64((CpuFid + 0x10), LShiftU64(1ULL, (UINTN)CpuDid));
+          currcoef = (INTN)cpuMult;
+          gCPUStructure.MaxRatio = (UINT32)cpuMult;
+          
+          cpuMultN2 = (msr_max & (UINT64)bit(0));
+          currdiv = cpuMultN2;
+
+          
+          /////// Addon END ///////
+        }
+          break;
+          
+        case 0x11: //// AMD Family 11h ////
+        {
+          UINT64 cofvid = 0;
+          UINT64 cpuMult;
+          // UINT64 divisor = 0;
+          UINT64 CpuDid;
+          UINT64 CpuFid;
+          UINT64 msr_min = 0;
+          
+          msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
+          msr_min = AsmReadMsr64(K10_PSTATE_STATUS + (RShiftU64(msr_min, 4) & 0x07));
+          
+          gCPUStructure.MinRatio = 5 * (UINT32)DivU64(((msr_min & 0x3f) + 0x08), LShiftU64(1ULL, ((RShiftU64(msr_min, 6) & 0x7))));
+          
+          cofvid  = AsmReadMsr64(K10_PSTATE_STATUS);
+          CpuDid = bitfield(cofvid, 8, 6);
+          CpuFid = bitfield(cofvid, 5, 0);
+          //if (CpuDid == 0) divisor = 2;
+          //else if (CpuDid == 1) divisor = 4;
+          //else if (CpuDid == 2) divisor = 8;
+          //else if (CpuDid == 3) divisor = 16;
+          //else if (did == 4) divisor = 32;
+          
+          cpuMult = DivU64((CpuFid + 0x8), LShiftU64(1ULL, (UINTN)CpuDid));
+          
+          currcoef = (INTN)cpuMult;
+          gCPUStructure.MaxRatio = (UINT32)cpuMult;
+          
+          cpuMultN2 = (cofvid & (UINT64)bit(0));
+          currdiv = cpuMultN2;
+          /////// Addon END ///////
+        }
+          break;
+          
+        case 0x12: //// AMD Family 12h ////
+        {
+          // 8:4 CpuFid: current CPU core frequency ID
+          // 3:0 CpuDid: current CPU core divisor ID
+          UINT64 prfsts,CpuFid,CpuDid;
+          
+          UINT64 msr_min = 0;
+          
+          msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
+          msr_min = AsmReadMsr64(K10_PSTATE_STATUS + (RShiftU64(msr_min, 4) & 0x07));
+          
+          gCPUStructure.MinRatio = 5 * (UINT32)DivU64(((msr_min & 0x3f) + 0x08), LShiftU64(1ULL, ((RShiftU64(msr_min, 0) & 0x7))));
+          
+          prfsts = AsmReadMsr64(K10_PSTATE_STATUS);
+          
+          CpuDid = bitfield(prfsts, 3, 0) ;
+          CpuFid = bitfield(prfsts, 8, 4) ;
+          //uint64_t divisor;
+          /*switch (CpuDid)
+           {
+           case 0: divisor = 1; break;
+           case 1: divisor = (3/2); break;
+           case 2: divisor = 2; break;
+           case 3: divisor = 3; break;
+           case 4: divisor = 4; break;
+           case 5: divisor = 6; break;
+           case 6: divisor = 8; break;
+           case 7: divisor = 12; break;
+           case 8: divisor = 16; break;
+           default: divisor = 1; break;
+           }*/
+          
+          currcoef = (INTN)DivU64((CpuFid + 0x10), LShiftU64(1ULL, (UINTN)CpuDid));
+          gCPUStructure.MaxRatio = (UINT32)currcoef;
+          
+          cpuMultN2 = (prfsts & (UINT64)bit(0));
+          currdiv = cpuMultN2;
+          
+        }
+          break;
+          
+        case 0x14: //// AMD Family 14h ////
+          
+        {
+          // 8:4: current CPU core divisor ID most significant digit
+          // 3:0: current CPU core divisor ID least significant digit
+          UINT64 prfsts;
+          UINT64 msr_min = 0;
+          
+          msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
+          msr_min = AsmReadMsr64(K10_PSTATE_STATUS + (RShiftU64(msr_min, 4) & 0x07));
+          
+          gCPUStructure.MinRatio = 5 * (UINT32)DivU64(((msr_min & 0x3f) + 0x08), LShiftU64(1ULL, ((RShiftU64(msr_min, 0) & 0x7))));
+          
+          prfsts = AsmReadMsr64(K10_PSTATE_STATUS);
+          
+          UINT64 CpuDidMSD,CpuDidLSD;
+          CpuDidMSD = bitfield(prfsts, 8, 4) ;
+          CpuDidLSD  = bitfield(prfsts, 3, 0) ;
+          
+          UINT64 frequencyId = DivU64x32(gCPUStructure.CPUFrequency, Mega);
+          
+          //Bronya :  i think that this fixed, need test this ...
+          currcoef = (INTN)DivU64((DivU64x32((frequencyId + 5), 100) + 0x10), (UINT64)(CpuDidMSD + DivU64x32(CpuDidLSD, 4) + 1));
+          gCPUStructure.MaxRatio = (UINT32)currcoef;
+          
+          currdiv = (INTN)(((CpuDidMSD) + 1) << 2);
+          currdiv += (INTN)bitfield(prfsts, 3, 0);
+          
+          cpuMultN2 = currdiv;//(prfsts & (UINT64)bit(0));
+          //currdiv = cpuMultN2;
+        }
+          
+          break;
+          
+        case 0x15: //// AMD Family 15h ////
+        case 0x06: //// AMD Family 06h ////
+        {
+          
+          UINT64 cofvid = 0;
+          UINT64 cpuMult;
+          //UINT64 divisor = 0;
+          UINT64 CpuDid;
+          UINT64 CpuFid;
+          
+          UINT64 msr_min = 0;
+          
+          msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
+          msr_min = AsmReadMsr64(K10_PSTATE_STATUS + (RShiftU64(msr_min, 4) & 0x07));
+          
+          gCPUStructure.MinRatio = 5 * (UINT32)DivU64(((msr_min & 0x3f) + 0x08), LShiftU64(1ULL, ((RShiftU64(msr_min, 6) & 0x7))));
+          
+          cofvid  = AsmReadMsr64(K10_PSTATE_STATUS);
+          CpuDid = bitfield(cofvid, 8, 6);
+          CpuFid = bitfield(cofvid, 5, 0);
+          
+          /* if (CpuDid == 0) divisor = 2;
+           else if (CpuDid == 1) divisor = 4;
+           else if (CpuDid == 2) divisor = 8;
+           else if (CpuDid == 3) divisor = 16;
+           else if (CpuDid == 4) divisor = 32;
+           */
+          cpuMult = DivU64((CpuFid + 0x10), LShiftU64(1ULL, (UINTN)CpuDid));
+          
+          currcoef = (INTN)cpuMult;
+          gCPUStructure.MaxRatio = (UINT32)cpuMult;
+          //printf("cpuMult %d\n",currcoef);
+          
+          cpuMultN2 = (cofvid & (UINT64)bit(0));
+          currdiv = cpuMultN2;
+        }
+          break;
+          
+        case 0x16: //// AMD Family 16h kabini ////
+        {
+          UINT64 cofvid = 0;
+          UINT64 cpuMult;
+          //UINT64 divisor = 0;
+          UINT64 CpuDid;
+          UINT64 CpuFid;
+          UINT64 msr_min = 0;
+          
+          msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
+          msr_min = AsmReadMsr64(K10_PSTATE_STATUS + (RShiftU64(msr_min, 4) & 0x07));
+          
+          gCPUStructure.MinRatio = 5 * (UINT32)DivU64(((msr_min & 0x3f) + 0x08), LShiftU64(1ULL, ((RShiftU64(msr_min, 6) & 0x7))));
+          
+          
+          cofvid  = AsmReadMsr64(K10_PSTATE_STATUS);
+          CpuDid = bitfield(cofvid, 8, 6);
+          CpuFid = bitfield(cofvid, 5, 0);
+          /* if (CpuDid == 0) divisor = 2;
+           else if (CpuDid == 1) divisor = 4;
+           else if (CpuDid == 2) divisor = 8;
+           else if (CpuDid == 3) divisor = 16;
+           else if (CpuDid == 4) divisor = 32;
+           */
+          cpuMult = DivU64((CpuFid + 0x10), LShiftU64(1ULL, (UINTN)CpuDid));
+          
+          currcoef = (INTN)cpuMult;
+          gCPUStructure.MaxRatio = (UINT32)cpuMult;
+          
+          cpuMultN2 = (cofvid & (UINT64)bit(0));
+          currdiv = cpuMultN2;
+          
+        }
+          break;
+          
+        case 0x17: //Bronya: For AMD Family 17h Ryzen ! //
+        case 0x19: // and 19h Ryzen
+        {
+          // CoreCOF = (Core::X86::Msr::PStateDef[CpuFid[7:0]]/Core::X86::Msr::PStateDef[CpuDfsId])*200
+          
+          //gCPUStructure.MaxRatio = gCPUStructure.TSCFrequency  / (100 * Mega);//Mhz ;
+          
+          UINT64 cofvid = 0 , msr_min = 0;
+          UINT64 cpuMult;
+          UINT64 CpuDfsId;
+          UINT64 CpuFid;
+          
+          msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
+          msr_min = AsmReadMsr64(K10_PSTATE_STATUS + (RShiftU64(msr_min, 4) & 0x7));
+          gCPUStructure.MinRatio = ((UINT32)DivU64x32(((msr_min & 0xFF)), (RShiftU64(msr_min, 8) & 0x3f)))*20;
+          
+          cofvid = AsmReadMsr64(K10_PSTATE_STATUS);
+          CpuDfsId =  bitfield(cofvid, 13, 8);
+          CpuFid = bitfield(cofvid, 7, 0);
+          
+          cpuMult = DivU64(CpuFid, CpuDfsId) * 2 * 2 ; //Bronya: This add * 2 <- Interested ))
+          //cpuMult = (UINT32)DivU64x32(((cofvid & 0xFF)), (RShiftU64(cofvid, 8) & 0x3f))*2;
+          currcoef = (INTN)cpuMult;
+          gCPUStructure.MaxRatio = (UINT32)cpuMult;
+          
+          cpuMultN2 = (cofvid & (UINT64)bit(0));
+          currdiv = cpuMultN2;
+          cpudid_zen = (UINT32)(RShiftU64(cofvid, 8) & 0xff); //for mult
+          
+          /////// Addon END ///////
+        }
+          break;
+          
+        default:
+        {
+          gCPUStructure.MaxRatio = (UINT32)DivU64x32(gCPUStructure.TSCFrequency, (200 * Mega));//hz / (200 * Mega);
+          currcoef = gCPUStructure.MaxRatio;
+        }
       }
     }
     
