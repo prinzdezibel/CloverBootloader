@@ -598,6 +598,7 @@ EFI_STATUS ConfigManager::LoadSMBIOSPlist(const XStringW& ConfName)
 
 void ConfigManager::ReloadSmbios(XStringW& str)
 {
+  return;
   size_t N = SmbiosList.size();
   if (OldChosenSmbios == 0) {  // this is auto fill by OSName
     for (size_t i=1; i<N; i++) {
@@ -732,10 +733,10 @@ void ConfigManager::applySettings() const
         gSettings.CPU.UseARTFreq = true;
     }
   }
-  if ( gSettings.Smbios.SmUUID.isNull() )
-  {
-    gSettings.Smbios.SmUUID = getSmUUIDFromSmbios();
-  }
+  //if ( gSettings.Smbios.SmUUID.isNull() )
+  //{
+  //  gSettings.Smbios.SmUUID = getSmUUIDFromSmbios();
+  //}
 
   // comes from main.cpp
   {
@@ -873,50 +874,50 @@ EFI_STATUS ConfigManager::LoadConfig(const XStringW& ConfName)
     DBG("LoadConfigPlist return %s. Config not loaded\n", efiStrError(Status));
   }
   
-  LoadSMBIOSPlist(L"smbios"_XSW); // we don't need Status. If not loaded correctly, smbiosPlist is !defined and will be ignored by AssignOldNewSettings()
+  //LoadSMBIOSPlist(L"smbios"_XSW); // we don't need Status. If not loaded correctly, smbiosPlist is !defined and will be ignored by AssignOldNewSettings()
 
   // get list of smbioses
-  XStringW h = L"auto"_XSW;
+  //XStringW h = L"auto"_XSW;
 
-  SmbiosList.AddReference(h.forgetDataWithoutFreeing(), true);
-  size_t N = sizeof(configPlist.m_fields)/sizeof(configPlist.m_fields[0]);
-  DBG("create SMBIOS list, found %lu dicts\n", N);
-  for (size_t i=0; i<N; i++) {
-    if (configPlist.m_fields[i].xmlAbstractType.isDefined()) {
-      XStringW h1;
-      h1.takeValueFrom(configPlist.m_fields[i].m_name);
-      DBG("... %ls\n", h1.wc_str());
-      if (h1.contains("SMBIOS")) {
-        SmbiosList.AddReference(h1.forgetDataWithoutFreeing(), true);
-      }
-    }
-  }
+  //SmbiosList.AddReference(h.forgetDataWithoutFreeing(), true);
+  //size_t N = sizeof(configPlist.m_fields)/sizeof(configPlist.m_fields[0]);
+  //DBG("create SMBIOS list, found %lu dicts\n", N);
+  //for (size_t i=0; i<N; i++) {
+  //  if (configPlist.m_fields[i].xmlAbstractType.isDefined()) {
+  //    XStringW h1;
+  //    h1.takeValueFrom(configPlist.m_fields[i].m_name);
+  //    DBG("... %ls\n", h1.wc_str());
+  //    if (h1.contains("SMBIOS")) {
+  //      SmbiosList.AddReference(h1.forgetDataWithoutFreeing(), true);
+  //    }
+  //  }
+  //}
 
-  if ( smbiosPlist.getSMBIOS().isDefined() && smbiosPlist.getSMBIOS().getProductName().isDefined() ) {
-    GlobalConfig.CurrentModel = smbiosPlist.SMBIOS.dgetModel();
-    DBG("get model from smbios.plist\n");
-  } else if ( configPlist.getSMBIOS().isDefined() && configPlist.getSMBIOS().getProductName().isDefined() ) {
-    GlobalConfig.CurrentModel = configPlist.getSMBIOS().dgetModel();
-    DBG("get model from config.plist\n");
-  } else {
-    GlobalConfig.CurrentModel = GetDefaultModel();
-    DBG("get default model\n");
-  }
+  // if ( smbiosPlist.getSMBIOS().isDefined() && smbiosPlist.getSMBIOS().getProductName().isDefined() ) {
+  //   GlobalConfig.CurrentModel = smbiosPlist.SMBIOS.dgetModel();
+  //   DBG("get model from smbios.plist\n");
+  // } else if ( configPlist.getSMBIOS().isDefined() && configPlist.getSMBIOS().getProductName().isDefined() ) {
+  //   GlobalConfig.CurrentModel = configPlist.getSMBIOS().dgetModel();
+  //   DBG("get model from config.plist\n");
+  // } else {
+  //   DBG("get default model\n");
+  // }
+  GlobalConfig.CurrentModel = GetDefaultModel();
 
   if ( !EFI_ERROR(Status) ) {
     gSettings.takeValueFrom(configPlist); // if load failed, keep default value.
   }
 
   // Fill in default for model
-  SetDMISettingsForModel(GlobalConfig.CurrentModel, &gSettings);
+  //SetDMISettingsForModel(GlobalConfig.CurrentModel, &gSettings);
 
   // NOTE : values from smbios.plist and config.plist will be merge if both exist.
   // Import values from configPlist if they are defined
-  FillSmbiosWithDefaultValue(GlobalConfig.CurrentModel, configPlist.getSMBIOS());
-  if ( smbiosPlist.SMBIOS.isDefined() ) {
-    // Import values from smbiosPlist if they are defined
-    FillSmbiosWithDefaultValue(GlobalConfig.CurrentModel, smbiosPlist.SMBIOS);
-  }
+  // FillSmbiosWithDefaultValue(GlobalConfig.CurrentModel, configPlist.getSMBIOS());
+  // if ( smbiosPlist.SMBIOS.isDefined() ) {
+  //   // Import values from smbiosPlist if they are defined
+  //   FillSmbiosWithDefaultValue(GlobalConfig.CurrentModel, smbiosPlist.SMBIOS);
+  // }
 
   applySettings();
   return Status;

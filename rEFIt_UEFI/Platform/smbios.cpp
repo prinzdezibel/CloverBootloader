@@ -2176,6 +2176,7 @@ EFI_STATUS PrepatchSmbios(SmbiosDiscoveredSettings* smbiosSettings)
   EFI_PHYSICAL_ADDRESS     BufferPtr;
   //  UINTN          Index;
   DbgHeader("Get Smbios");
+  return EFI_NOT_FOUND;
 
   // Get SMBIOS Tables
   Smbios = FindOemSMBIOSPtr();
