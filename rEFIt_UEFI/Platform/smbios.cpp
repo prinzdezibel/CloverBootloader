@@ -66,10 +66,11 @@ const SLOT_DEVICE nullSLOT_DEVICE;
 //
 EFI_GUID                        gRemapEfiSmbiosTableGuid = REMAP_SMBIOS_TABLE_GUID;
 
-//EFI_PHYSICAL_ADDRESS      *smbiosTable;
-void                        *Smbios;  //pointer to SMBIOS data
-SMBIOS_TABLE_ENTRY_POINT    *EntryPoint; //SmbiosEps original
-SMBIOS_TABLE_ENTRY_POINT    *SmbiosEpsNew; //new SmbiosEps
+//EFI_PHYSICAL_ADDRESS        *smbiosTable;
+void                          *Smbios;  //pointer to SMBIOS data
+SMBIOS_TABLE_ENTRY_POINT      *EntryPoint; //SmbiosEps original
+SMBIOS_TABLE_3_0_ENTRY_POINT  *EntryPoint3; //SmbiosEps original
+SMBIOS_TABLE_ENTRY_POINT      *SmbiosEpsNew; //new SmbiosEps
 //for patching
 APPLE_SMBIOS_STRUCTURE_POINTER  SmbiosTable;
 APPLE_SMBIOS_STRUCTURE_POINTER  newSmbiosTable;
@@ -103,6 +104,9 @@ MEM_STRUCTURE    gRAM;
 #define MAX_HANDLE        0xFEFF
 #define SMBIOS_PTR        SIGNATURE_32('_','S','M','_')
 #define MAX_TABLE_SIZE    512
+
+#define SMBIOS_3_0_ANCHOR_STRING         "_SM3_"
+#define SMBIOS_3_0_ANCHOR_STRING_LENGTH  5
 
 //#define smbios_offsetof(s,m) ( (SMBIOS_TABLE_STRING) ((UINT8*)&((s*)0)->m - (UINT8*)0))
 #ifndef smbios_offsetof
@@ -183,9 +187,16 @@ void* FindOemSMBIOSPtr (void)
   // Search 0x0f0000 - 0x0fffff for SMBIOS Ptr
   for (UINTN Address = 0xf0000; Address < 0xfffff; Address += 0x10) {
     if (*(UINT32 *)(Address) == SMBIOS_PTR && IsEntryPointStructureValid((SMBIOS_TABLE_ENTRY_POINT*)Address)) {
+      DBG("SMBIOS found");
+      return (void *)Address;
+    }
+
+    if (CompareMem (((SMBIOS_TABLE_3_0_ENTRY_POINT*)Address)->AnchorString, SMBIOS_3_0_ANCHOR_STRING, SMBIOS_3_0_ANCHOR_STRING_LENGTH) == 0) {
+      DBG("SMBIOS_3 found");
       return (void *)Address;
     }
   }
+
   return NULL;
 }
 
@@ -218,9 +229,11 @@ void* GetSmbiosTablesFromConfigTables (void)
 
   Status = EfiGetSystemConfigurationTable (&gEfiSmbiosTableGuid, (void **)&Table);
   if (EFI_ERROR(Status) || Table == NULL) {
+    DBG("Error calling EfiGetSystemConfigurationTable (&gEfiSmbiosTableGuid, (void **)&Table). Status=%d", Status);
     Table = NULL;
     Status = EfiGetSystemConfigurationTable (&gEfiSmbios3TableGuid, (void **)&Table);
     if (EFI_ERROR(Status)) {
+      DBG("Error calling EfiGetSystemConfigurationTable (&gEfiSmbios3TableGuid, (void **)&Table). Status=%d", Status);
       Table = NULL;
     }
   }
@@ -2176,85 +2189,98 @@ EFI_STATUS PrepatchSmbios(SmbiosDiscoveredSettings* smbiosSettings)
   EFI_PHYSICAL_ADDRESS     BufferPtr;
   //  UINTN          Index;
   DbgHeader("Get Smbios");
-  return EFI_NOT_FOUND;
+  
+  
+  // return EFI_NOT_FOUND;
 
-  // Get SMBIOS Tables
+  // // Get SMBIOS Tables
   Smbios = FindOemSMBIOSPtr();
-  //  DBG("OEM SMBIOS EPS=%p\n", Smbios);
-  //  DBG("OEM Tables = %X\n", ((SMBIOS_TABLE_ENTRY_POINT*)Smbios)->TableAddress);
+  DBG("OEM SMBIOS EPS=%p\n", Smbios);
+  DBG("OEM Tables = %X\n", ((SMBIOS_TABLE_3_0_ENTRY_POINT*)Smbios)->TableAddress);
   if (!Smbios) {
-    //    DBG("Original SMBIOS System Table not found! Getting from Hob...\n");
+    DBG("Original SMBIOS System Table not found! Getting from Hob...\n");
     Smbios = GetSmbiosTablesFromHob();
-    //    DBG("HOB SMBIOS EPS=%p\n", Smbios);
+    DBG("HOB SMBIOS EPS=%p\n", Smbios);
     if (!Smbios) {
-      //      DBG("And here SMBIOS System Table not found! Trying System table ...\n");
+      DBG("And here SMBIOS System Table not found! Trying System table ...\n");
       // this should work on any UEFI
       Smbios = GetSmbiosTablesFromConfigTables();
-      //      DBG("ConfigTables SMBIOS EPS=%p\n", Smbios);
+      DBG("ConfigTables SMBIOS EPS=%p\n", Smbios);
       if (!Smbios) {
-        //        DBG("And here SMBIOS System Table not found! Exiting...\n");
+        DBG("And here SMBIOS System Table not found! Exiting...\n");
         return EFI_NOT_FOUND;
       }
     }
   }
 
+  //Smbios = GetSmbiosTablesFromConfigTables();
+
   //original EPS and tables
-  EntryPoint = (SMBIOS_TABLE_ENTRY_POINT*)Smbios; //yes, it is old SmbiosEPS
-  //  Smbios = (void*)(UINT32)EntryPoint->TableAddress; // here is flat Smbios database. Work with it
-  //how many we need to add for tables 128, 130, 131, 132 and for strings?
-  BufferLen = 0x20 + EntryPoint->TableLength + 64 * 10;
-  //new place for EPS and tables. Allocated once for both
-  BufferPtr = EFI_SYSTEM_TABLE_MAX_ADDRESS;
-  Status = gBS->AllocatePages (AllocateMaxAddress, EfiACPIMemoryNVS, /*EfiACPIReclaimMemory,   */
-                               EFI_SIZE_TO_PAGES(BufferLen), &BufferPtr);
-  if (EFI_ERROR(Status)) {
-    //    DBG("There is error allocating pages in EfiACPIMemoryNVS!\n");
-    Status = gBS->AllocatePages (AllocateMaxAddress,  /*EfiACPIMemoryNVS, */EfiACPIReclaimMemory,
-                                 ROUND_PAGE(BufferLen)/EFI_PAGE_SIZE, &BufferPtr);
-    if (EFI_ERROR(Status)) {
-      //      DBG("There is error allocating pages in EfiACPIReclaimMemory!\n");
-    }
-  }
-  //  DBG("Buffer @ %p\n", BufferPtr);
-  if (BufferPtr) {
-    SmbiosEpsNew = (SMBIOS_TABLE_ENTRY_POINT *)(UINTN)BufferPtr; //this is new EPS
-  } else {
-    SmbiosEpsNew = EntryPoint; //is it possible?!
-  }
-  ZeroMem(SmbiosEpsNew, BufferLen);
-  //  DBG("New EntryPoint = %p\n", SmbiosEpsNew);
-  NumberOfRecords = 0;
-  MaxStructureSize = 0;
-  //preliminary fill EntryPoint with some data
-  CopyMem((void *)SmbiosEpsNew, (void *)EntryPoint, sizeof(SMBIOS_TABLE_ENTRY_POINT));
+  EntryPoint = (SMBIOS_TABLE_ENTRY_POINT*)Smbios;
+
+  DBG("EntryPoint3 @ %p\n", (void*) EntryPoint);
+  DBG("EntryPoint3->EntryPointLength = %d\n", EntryPoint->EntryPointLength);
+  DBG("EntryPoint3->TableAddress = %X\n", EntryPoint->TableAddress);
+
+  // EntryPoint = (SMBIOS_TABLE_ENTRY_POINT*)Smbios; //yes, it is old SmbiosEPS
+  // //  Smbios = (void*)(UINT32)EntryPoint->TableAddress; // here is flat Smbios database. Work with it
+  // //how many we need to add for tables 128, 130, 131, 132 and for strings?
+  // BufferLen = 0x20 + EntryPoint->TableLength + 64 * 10;
+  // //new place for EPS and tables. Allocated once for both
+  // BufferPtr = EFI_SYSTEM_TABLE_MAX_ADDRESS;
+  // Status = gBS->AllocatePages (AllocateMaxAddress, EfiACPIMemoryNVS, 
+  //                              EFI_SIZE_TO_PAGES(BufferLen), &BufferPtr);
+  // if (EFI_ERROR(Status)) {
+  //   //    DBG("There is error allocating pages in EfiACPIMemoryNVS!\n");
+  //   Status = gBS->AllocatePages (AllocateMaxAddress,  EfiACPIReclaimMemory,
+  //                                ROUND_PAGE(BufferLen)/EFI_PAGE_SIZE, &BufferPtr);
+  //   if (EFI_ERROR(Status)) {
+  //     //      DBG("There is error allocating pages in EfiACPIReclaimMemory!\n");
+  //   }
+  // }
+  // //  DBG("Buffer @ %p\n", BufferPtr);
+  // if (BufferPtr) {
+  //   SmbiosEpsNew = (SMBIOS_TABLE_ENTRY_POINT *)(UINTN)BufferPtr; //this is new EPS
+  // } else {
+  //   SmbiosEpsNew = EntryPoint; //is it possible?!
+  // }
+  // ZeroMem(SmbiosEpsNew, BufferLen);
+  // //  DBG("New EntryPoint = %p\n", SmbiosEpsNew);
+  // NumberOfRecords = 0;
+  // MaxStructureSize = 0;
+  // //preliminary fill EntryPoint with some data
+  // CopyMem((void *)SmbiosEpsNew, (void *)EntryPoint, sizeof(SMBIOS_TABLE_ENTRY_POINT));
 
 
-  Smbios = (void*)(SmbiosEpsNew + 1); //this is a C-language trick. I hate it but use. +1 means +sizeof(SMBIOS_TABLE_ENTRY_POINT)
-  Current = (UINT8*)Smbios; //begin fill tables from here
-  SmbiosEpsNew->TableAddress = (UINT32)(UINTN)Current;
-  SmbiosEpsNew->EntryPointLength = sizeof(SMBIOS_TABLE_ENTRY_POINT); // no matter on other versions
-  if (smbiosSettings->SmbiosVersion != 0) {
-    SmbiosEpsNew->MajorVersion = (UINT8)(smbiosSettings->SmbiosVersion >> 8);
-    SmbiosEpsNew->MinorVersion = (UINT8)(smbiosSettings->SmbiosVersion & 0xFF);
-    SmbiosEpsNew->SmbiosBcdRevision = (SmbiosEpsNew->MajorVersion << 4) + SmbiosEpsNew->MinorVersion;
-  }
-  else {
-    //old behavior
-    SmbiosEpsNew->MajorVersion = 2;
-    SmbiosEpsNew->MinorVersion = 4;
-    SmbiosEpsNew->SmbiosBcdRevision = 0x24; //Slice - we want to have v2.6 but Apple still uses 2.4, let it be default value
-  }
+  // Smbios = (void*)(SmbiosEpsNew + 1); //this is a C-language trick. I hate it but use. +1 means +sizeof(SMBIOS_TABLE_ENTRY_POINT)
+  // Current = (UINT8*)Smbios; //begin fill tables from here
+  // SmbiosEpsNew->TableAddress = (UINT32)(UINTN)Current;
+  // SmbiosEpsNew->EntryPointLength = sizeof(SMBIOS_TABLE_ENTRY_POINT); // no matter on other versions
+  // if (smbiosSettings->SmbiosVersion != 0) {
+  //   SmbiosEpsNew->MajorVersion = (UINT8)(smbiosSettings->SmbiosVersion >> 8);
+  //   SmbiosEpsNew->MinorVersion = (UINT8)(smbiosSettings->SmbiosVersion & 0xFF);
+  //   SmbiosEpsNew->SmbiosBcdRevision = (SmbiosEpsNew->MajorVersion << 4) + SmbiosEpsNew->MinorVersion;
+  // }
+  // else {
+  //   //old behavior
+  //   SmbiosEpsNew->MajorVersion = 2;
+  //   SmbiosEpsNew->MinorVersion = 4;
+  //   SmbiosEpsNew->SmbiosBcdRevision = 0x24; //Slice - we want to have v2.6 but Apple still uses 2.4, let it be default value
+  // }
+
+ 
 
   //Collect information for use in menu
-  GetTableType1(smbiosSettings);
-  GetTableType2(smbiosSettings);
-  GetTableType3(smbiosSettings);
-  GetTableType4(smbiosSettings);
-  // GetTableType16() will initialize smbiosSettings->RamSlotCount. Could be MAX_RAM_SLOTS.
-  GetTableType16(smbiosSettings);
-  GetTableType17(smbiosSettings);
-  GetTableType32(smbiosSettings); //get BootStatus here to decide what to do
-  MsgLog("Boot status=%hhX\n", gBootStatus);
+  // GetTableType1(smbiosSettings);
+  // GetTableType2(smbiosSettings);
+  // GetTableType3(smbiosSettings);
+  // GetTableType4(smbiosSettings);
+  // return EFI_NOT_FOUND; 
+  // // GetTableType16() will initialize smbiosSettings->RamSlotCount. Could be MAX_RAM_SLOTS.
+  // GetTableType16(smbiosSettings);
+  // GetTableType17(smbiosSettings);
+  // GetTableType32(smbiosSettings); //get BootStatus here to decide what to do
+  // MsgLog("Boot status=%hhX\n", gBootStatus);
   //for example the bootloader may go to Recovery is BootStatus is Fail
   return   Status;
 }
@@ -2309,6 +2335,7 @@ void PatchSmbios(const SmbiosInjectedSettings& smbiosSettings) //continue
 
 void FinalizeSmbios(const SmbiosInjectedSettings& smbiosSettings) //continue
 {
+  DBG("FinalizeSmbios\n");
   EFI_PEI_HOB_POINTERS  GuidHob;
   EFI_PEI_HOB_POINTERS  HobStart;
   EFI_PHYSICAL_ADDRESS    *Table = NULL;
@@ -2418,4 +2445,10 @@ void FinalizeSmbios(const SmbiosInjectedSettings& smbiosSettings) //continue
   return;
 }
 
+void FinalizeSmbios3() {
+  // remove smbios v2 table
+  gBS->InstallConfigurationTable (&gEfiSmbiosTableGuid, (void*)NULL);
+  // Install smbios v3 table
+  gBS->InstallConfigurationTable (&gEfiSmbios3TableGuid, (void*)EntryPoint);
+}
 

@@ -1740,6 +1740,9 @@ void LOADER_ENTRY::StartLoader()
   }
   else if (OSTYPE_IS_LINUX(LoaderType) || (LoaderType == OSTYPE_LINEFI)) {
 
+    FinalizeSmbios3();
+
+
     DBG("Closing events for Linux\n");
     gBS->CloseEvent (OnReadyToBootEvent);
     gBS->CloseEvent (ExitBootServiceEvent);

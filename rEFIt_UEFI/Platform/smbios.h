@@ -301,6 +301,7 @@ iStrLen(
 EFI_STATUS PrepatchSmbios(SmbiosDiscoveredSettings* smbiosSettings);
 void PatchSmbios(const SmbiosInjectedSettings& smbiosSettings);
 void FinalizeSmbios(const SmbiosInjectedSettings& smbiosSettings);
+void FinalizeSmbios3();
 
 XBool getMobileFromSmbios();
 EFI_GUID getSmUUIDFromSmbios();
